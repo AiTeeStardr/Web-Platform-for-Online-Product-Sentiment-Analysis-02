@@ -14,7 +14,7 @@ class Config:
     DEBUG = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
 
     # MongoDB
-    MONGO_URI = os.environ.get('MONGO_URI', 'mongodb://localhost:27017/')
+    MONGO_URI = os.environ.get('MONGO_URI')
     MONGO_DB_NAME = os.environ.get('MONGO_DB_NAME', 'sentiment_analysis')
 
     # CORS
