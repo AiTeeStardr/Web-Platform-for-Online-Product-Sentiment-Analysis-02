@@ -18,7 +18,7 @@ class Config:
     MONGO_DB_NAME = os.environ.get('MONGO_DB_NAME', 'sentiment_analysis')
 
     # CORS
-    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'http://localhost:5173').split(',')
+    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'mongodb+srv://tboonrod06_db_user:ITggg064OPZTV@cluster0.6tm7gxg.mongodb.net/?appName=Cluster0').split(',')
 
     # Scraping
     SCRAPE_MAX_PAGES = int(os.environ.get('SCRAPE_MAX_PAGES', 10))
