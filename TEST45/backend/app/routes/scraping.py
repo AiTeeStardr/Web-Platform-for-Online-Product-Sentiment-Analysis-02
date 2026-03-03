@@ -150,7 +150,7 @@ def _run_scrape_task(task_id, url, platform, max_pages):
             _scrape_tasks[task_id]['progress'] = 80
 
             # Store in MongoDB
-            if database and anonymized_reviews:
+            if database is not None and anonymized_reviews:
                 from app.models.review import ReviewModel
                 for review in anonymized_reviews:
                     review['product_id'] = ObjectId(task_id)
@@ -174,5 +174,5 @@ def _run_scrape_task(task_id, url, platform, max_pages):
                 'progress': 0,
                 'error': str(e)
             }
-            if database:
+            if database is not None:
                 ProductModel.update(database, task_id, {'scrape_status': 'failed'})

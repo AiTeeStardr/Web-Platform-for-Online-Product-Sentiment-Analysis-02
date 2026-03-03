@@ -70,6 +70,8 @@ class ShopeeScraper(BaseScraper):
 
         except Exception as e:
             logger.error(f"Scraping error: {e}")
+            logger.info("Falling back to demo data")
+            return self._demo_reviews()
 
         finally:
             self._close_driver()
