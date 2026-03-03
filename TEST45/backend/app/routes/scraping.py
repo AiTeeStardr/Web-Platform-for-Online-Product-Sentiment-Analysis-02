@@ -2,7 +2,7 @@
 API Routes - Scraping
 """
 import threading
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify ,make_response
 from bson import ObjectId
 from app.models.product import ProductModel
 
@@ -19,7 +19,7 @@ def _get_db():
 
 @scraping_bp.route('/scrape', methods=['POST','OPTIONS'])
 def start_scraping():
-    
+
     if request.method == 'OPTIONS':
         response = make_response('', 200)
         # เปิดให้ทุก Domain และทุก Header เข้าถึงได้
