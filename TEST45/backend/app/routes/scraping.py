@@ -17,8 +17,17 @@ def _get_db():
     return db
 
 
-@scraping_bp.route('/scrape', methods=['POST'])
+@scraping_bp.route('/scrape', methods=['POST','OPTIONS'])
 def start_scraping():
+    
+    if request.method == 'OPTIONS':
+        response = make_response('', 200)
+        # เปิดให้ทุก Domain และทุก Header เข้าถึงได้
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+        return response
+    
     """Start a new scraping task."""
     data = request.get_json()
 

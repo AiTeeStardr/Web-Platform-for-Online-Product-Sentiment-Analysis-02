@@ -18,7 +18,7 @@ def create_app(config_class=Config):
     app.config.from_object(config_class)
 
     # Enable CORS for React frontend
-    CORS(app, origins=app.config.get('CORS_ORIGINS', ['http://localhost:5173']))
+    CORS(app, resources={r"/*": {"origins": "*"}})
 
     # Initialize MongoDB
     _init_db(app)
