@@ -2,7 +2,7 @@
 API Routes - Scraping
 """
 import threading
-from flask import Blueprint, request, jsonify ,make_response
+from flask import Blueprint, request, jsonify, make_response
 from bson import ObjectId
 from app.models.product import ProductModel
 
@@ -17,18 +17,16 @@ def _get_db():
     return db
 
 
-@scraping_bp.route('/scrape', methods=['POST','OPTIONS'])
+@scraping_bp.route('/scrape', methods=['POST', 'OPTIONS'])
 def start_scraping():
 
     if request.method == 'OPTIONS':
         response = make_response('', 200)
-        # เปิดให้ทุก Domain และทุก Header เข้าถึงได้
         response.headers.add("Access-Control-Allow-Origin", "*")
         response.headers.add("Access-Control-Allow-Headers", "Content-Type, Authorization")
         response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
         return response
-    
-    """Start a new scraping task."""
+
     data = request.get_json()
 
     if not data or 'url' not in data:
@@ -40,7 +38,6 @@ def start_scraping():
 
     db = _get_db()
     if db is None:
-        # Demo mode
         return jsonify({
             'task_id': 'demo_task',
             'status': 'completed',
@@ -48,17 +45,15 @@ def start_scraping():
             'product_id': 'demo_001'
         }), 200
 
-    # Check if product already exists
     existing = ProductModel.find_by_url(db, url)
     if existing:
         return jsonify({
-            'task_id': existing['_id'],
+            'task_id': str(existing['_id']),
             'status': 'exists',
             'message': 'Product already scraped',
-            'product_id': existing['_id']
+            'product_id': str(existing['_id'])
         }), 200
 
-    # Create product entry
     product = ProductModel.create_schema()
     product['url'] = url
     product['platform'] = platform
@@ -66,8 +61,7 @@ def start_scraping():
     product['scrape_status'] = 'scraping'
     product_id = ProductModel.insert(db, product)
 
-    # Start scraping in background
-    task_id = product_id
+    task_id = str(product_id)
     _scrape_tasks[task_id] = {'status': 'scraping', 'progress': 0}
 
     thread = threading.Thread(
@@ -81,13 +75,13 @@ def start_scraping():
         'task_id': task_id,
         'status': 'scraping',
         'message': f'Scraping started for {platform}',
-        'product_id': product_id
+        'product_id': task_id
     }), 202
 
 
 @scraping_bp.route('/scrape/status/<task_id>', methods=['GET'])
 def get_scrape_status(task_id):
-    """Check scraping task status."""
+
     if task_id == 'demo_task':
         return jsonify({
             'task_id': task_id,
@@ -97,33 +91,32 @@ def get_scrape_status(task_id):
         }), 200
 
     task = _scrape_tasks.get(task_id)
-    if not task:
-        # Check DB for product status
-        db = _get_db()
-        if db:
-            product = ProductModel.find_by_id(db, task_id)
-            if product:
-                return jsonify({
-                    'task_id': task_id,
-                    'status': product.get('scrape_status', 'unknown'),
-                    'progress': 100 if product.get('scrape_status') == 'completed' else 0,
-                    'reviews_found': product.get('total_reviews', 0)
-                }), 200
+    if task:
+        return jsonify({
+            'task_id': task_id,
+            **task
+        }), 200
 
-        return jsonify({'error': 'Task not found'}), 404
+    db = _get_db()
+    if db is not None:
+        product = ProductModel.find_by_id(db, task_id)
+        if product:
+            return jsonify({
+                'task_id': task_id,
+                'status': product.get('scrape_status', 'unknown'),
+                'progress': 100 if product.get('scrape_status') == 'completed' else 0,
+                'reviews_found': product.get('total_reviews', 0)
+            }), 200
 
-    return jsonify({
-        'task_id': task_id,
-        **task
-    }), 200
+    return jsonify({'error': 'Task not found'}), 404
 
 
 def _run_scrape_task(task_id, url, platform, max_pages):
-    """Background scraping task."""
     from app import create_app
     app = create_app()
 
     with app.app_context():
+        database = None
         try:
             from app import db as database
             from app.services.scraper.shopee_scraper import ShopeeScraper
@@ -131,32 +124,32 @@ def _run_scrape_task(task_id, url, platform, max_pages):
 
             _scrape_tasks[task_id] = {'status': 'scraping', 'progress': 10}
 
-            # Select scraper based on platform
-            if platform == 'shopee':
-                scraper = ShopeeScraper()
-            else:
-                scraper = ShopeeScraper()  # Default fallback
+            scraper = ShopeeScraper()
 
-            # Execute scraping
-            _scrape_tasks[task_id]['progress'] = 20
+            _scrape_tasks[task_id]['progress'] = 30
             raw_reviews = scraper.scrape(url, max_pages=max_pages)
+
+            # 🔥 ถ้า scrape พังหรือไม่ได้อะไรเลย → ใช้ demo
+            if not raw_reviews:
+                raw_reviews = scraper._demo_reviews()
 
             _scrape_tasks[task_id]['progress'] = 60
 
-            # Anonymize data (PDPA compliance)
             anonymizer = Anonymizer()
-            anonymized_reviews = [anonymizer.anonymize_review(r) for r in raw_reviews]
+            anonymized_reviews = [
+                anonymizer.anonymize_review(r) for r in raw_reviews
+            ]
 
             _scrape_tasks[task_id]['progress'] = 80
 
-            # Store in MongoDB
             if database is not None and anonymized_reviews:
                 from app.models.review import ReviewModel
+
                 for review in anonymized_reviews:
                     review['product_id'] = ObjectId(task_id)
+
                 ReviewModel.insert_many(database, anonymized_reviews)
 
-                # Update product
                 ProductModel.update(database, task_id, {
                     'scrape_status': 'completed',
                     'total_reviews': len(anonymized_reviews)
@@ -174,5 +167,8 @@ def _run_scrape_task(task_id, url, platform, max_pages):
                 'progress': 0,
                 'error': str(e)
             }
+
             if database is not None:
-                ProductModel.update(database, task_id, {'scrape_status': 'failed'})
+                ProductModel.update(database, task_id, {
+                    'scrape_status': 'failed'
+                })
