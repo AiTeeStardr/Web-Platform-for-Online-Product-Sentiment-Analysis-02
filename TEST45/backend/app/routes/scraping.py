@@ -1,8 +1,9 @@
 """
-API Routes - Scraping
+API Routes - Scraping (Playwright version)
 """
 
 import threading
+import asyncio
 from flask import Blueprint, request, jsonify, make_response
 from bson import ObjectId
 from app.models.product import ProductModel
@@ -49,11 +50,9 @@ def start_scraping():
 
     existing = ProductModel.find_by_url(db, url)
 
-    # ✅ ถ้าเคยมี URL นี้แล้ว
     if existing:
         status = existing.get("scrape_status")
 
-        # ถ้า scrape เสร็จแล้ว → ไม่ต้อง scrape ใหม่
         if status == "completed":
             return jsonify({
                 'task_id': str(existing['_id']),
@@ -62,7 +61,6 @@ def start_scraping():
                 'product_id': str(existing['_id'])
             }), 200
 
-        # ถ้า failed หรือ scraping ค้าง → scrape ใหม่
         ProductModel.update(db, str(existing['_id']), {
             'scrape_status': 'scraping',
             'total_reviews': 0
@@ -71,7 +69,6 @@ def start_scraping():
         task_id = str(existing['_id'])
 
     else:
-        # สร้าง product ใหม่
         product = ProductModel.create_schema()
         product['url'] = url
         product['platform'] = platform
@@ -83,7 +80,6 @@ def start_scraping():
 
     _scrape_tasks[task_id] = {'status': 'scraping', 'progress': 0}
 
-    # เริ่ม background thread
     thread = threading.Thread(
         target=_run_scrape_task,
         args=(task_id, url, platform, max_pages)
@@ -145,9 +141,12 @@ def _run_scrape_task(task_id, url, platform, max_pages):
         scraper = ShopeeScraper()
 
         _scrape_tasks[task_id]['progress'] = 30
-        raw_reviews = scraper.scrape(url, max_pages=max_pages)
 
-        # ถ้า scrape ไม่ได้อะไรเลย → ใช้ demo
+        # 🔥 สำคัญมาก: ใช้ asyncio.run สำหรับ Playwright
+        raw_reviews = asyncio.run(
+            scraper.scrape(url, max_pages=max_pages)
+        )
+
         if not raw_reviews:
             raw_reviews = scraper._demo_reviews()
 

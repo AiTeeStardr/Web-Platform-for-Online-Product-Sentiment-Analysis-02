@@ -1,10 +1,11 @@
 services:
   - type: web
-    name: web-platform-for-online-product   # ต้องตรงกับชื่อใน Render
+    name: web-platform-for-online-product
     env: python
     plan: free
+
     buildCommand: |
-      apt-get update
-      apt-get install -y chromium chromium-driver
       pip install -r backend/requirements.txt
+      playwright install chromium
+
     startCommand: cd backend && python run.py
