@@ -1,11 +1,10 @@
 services:
   - type: web
-    name: web-platform-for-online-product
+    name: web-platform-backend
     env: python
     plan: free
-    buildCommand: |
-      pip install -r backend/requirements.txt
-    startCommand: cd backend && python run.py
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && gunicorn run:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
